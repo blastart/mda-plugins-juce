@@ -32,7 +32,7 @@ jobs:
 
           - name: Windows-x64
             os: windows-latest
-            cmake-args: "-A x64"
+            cmake-args: ""
             artifact: mda-plugins-windows-x64
 
           - name: Linux-x64
