@@ -72,10 +72,6 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install ninja
 
-      - name: Install Ninja (Windows)
-        if: runner.os == 'Windows'
-        run: choco install ninja -y
-
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.7
 
@@ -86,11 +82,16 @@ jobs:
           key: fetchcontent-${{ matrix.artifact }}-${{ hashFiles('CMakeLists.txt') }}
           restore-keys: fetchcontent-${{ matrix.artifact }}-
 
-      - name: Configure CMake
+      - name: Configure CMake (Unix)
+        if: runner.os != 'Windows'
         env:
           CMAKE_C_COMPILER_LAUNCHER: sccache
           CMAKE_CXX_COMPILER_LAUNCHER: sccache
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake-args }}
+
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
 
       - name: Build
         run: cmake --build build --config Release --parallel 4
