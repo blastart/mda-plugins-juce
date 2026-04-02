@@ -3,3 +3,15 @@
 **/JuceLibraryCode
 **/*.filtergraph
 
+# CMake
+build/
+CMakeUserPresets.json
+
+# IDEs
+.idea/
+.vscode/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/
+
+# OS
+Thumbs.db
