@@ -58,11 +58,11 @@ The original project used JUCE 7, which fails to compile on macOS 15 (Sequoia) d
 ```bash
 git clone https://github.com/blastart/mda-plugins-juce.git
 cd mda-plugins-juce
-cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
 cmake --build build --config Release --parallel
 ```
 
-On Apple Silicon Macs, add `-DCMAKE_OSX_ARCHITECTURES=arm64` (or `arm64;x86_64` for universal binaries).
+The macOS example above builds **Universal Binaries** that run natively on both Apple Silicon and Intel Macs. On Windows and Linux, omit the `-DCMAKE_OSX_ARCHITECTURES` flag. To build for a single architecture only, use `arm64` or `x86_64` instead.
 
 ### Install
 
