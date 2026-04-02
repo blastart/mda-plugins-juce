@@ -16,7 +16,7 @@ FetchContent_Declare(
 FetchContent_Declare(
     clap-juce-extensions
     GIT_REPOSITORY https://github.com/free-audio/clap-juce-extensions.git
-    GIT_TAG main
+    GIT_TAG e1f67893cc409a40c1154fa2e78c97046da24ce0  # main as of 2026-04-02
     GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(JUCE clap-juce-extensions)
@@ -57,7 +57,7 @@ function(mda_add_plugin TARGET DIR PLUGIN_CODE PLUGIN_NAME PRODUCT_NAME CATEGORI
         NEEDS_MIDI_INPUT ${_MIDI_IN}
         NEEDS_MIDI_OUTPUT FALSE
         VST3_CATEGORIES ${CATEGORIES}
-        LV2URI "https://mda.smartelectronix.com/plugins/${PLUGIN_CODE}"
+        LV2URI "https://github.com/blastart/mda-plugins-juce#${TARGET}"
     )
 
     juce_generate_juce_header(${TARGET})
@@ -88,7 +88,7 @@ function(mda_add_plugin TARGET DIR PLUGIN_CODE PLUGIN_NAME PRODUCT_NAME CATEGORI
     endif()
 
     clap_juce_extensions_plugin(TARGET ${TARGET}
-        CLAP_ID "org.mda.${PLUGIN_CODE}"
+        CLAP_ID "com.github.blastart.mda.${TARGET}"
         CLAP_FEATURES ${_CLAP_FEATURES}
     )
 endfunction()
