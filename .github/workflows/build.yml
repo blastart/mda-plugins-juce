@@ -2,10 +2,10 @@ name: Build MDA Plugins
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, dev]
     tags: ["v*"]
   pull_request:
-    branches: [main, master]
+    branches: [main, master, dev]
   workflow_dispatch:
 
 concurrency:
@@ -65,10 +65,32 @@ jobs:
             libgl1-mesa-dev \
             libcurl4-openssl-dev \
             libwebkit2gtk-4.1-dev \
-            pkg-config
+            pkg-config \
+            ninja-build
+
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Install Ninja (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ninja -y
+
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.7
+
+      - name: Cache FetchContent downloads
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: fetchcontent-${{ matrix.artifact }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: fetchcontent-${{ matrix.artifact }}-
 
       - name: Configure CMake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake-args }}
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: sccache
+          CMAKE_CXX_COMPILER_LAUNCHER: sccache
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake-args }}
 
       - name: Build
         run: cmake --build build --config Release --parallel 4
@@ -105,6 +127,23 @@ jobs:
           find staging -type d -empty -delete 2>/dev/null || true
           echo "Collected $(find staging -mindepth 2 -maxdepth 2 | wc -l | tr -d ' ') plugins"
 
+      - name: Strip and re-sign (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          find staging -type f -perm +111 \( -name "*.dylib" -o ! -name "*.*" \) -path "*/MacOS/*" | while read f; do
+            strip -x "$f" 2>/dev/null || true
+          done
+          find staging \( -name "*.vst3" -o -name "*.component" -o -name "*.clap" -o -name "*.lv2" \) -maxdepth 2 | while read bundle; do
+            codesign --force --sign - "$bundle" 2>/dev/null || true
+          done
+
+      - name: Strip (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          find staging -type f -executable -o -name "*.so" | while read f; do
+            strip --strip-unneeded "$f" 2>/dev/null || true
+          done
+
       - name: Create archive (Unix)
         if: runner.os != 'Windows'
         run: cd staging && zip -r ../${{ matrix.artifact }}.zip .
@@ -119,6 +158,7 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}.zip
+          retention-days: 3
 
   release:
     name: Create Release
