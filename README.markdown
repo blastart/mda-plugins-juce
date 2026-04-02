@@ -56,10 +56,10 @@ The original project used JUCE 7, which fails to compile on macOS 15 (Sequoia) d
 ### Build
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/mda-plugins-juce.git
+git clone https://github.com/blastart/mda-plugins-juce.git
 cd mda-plugins-juce
 cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release -j$(nproc)
+cmake --build build --config Release --parallel
 ```
 
 On Apple Silicon Macs, add `-DCMAKE_OSX_ARCHITECTURES=arm64` (or `arm64;x86_64` for universal binaries).
