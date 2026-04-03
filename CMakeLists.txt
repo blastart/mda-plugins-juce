@@ -77,7 +77,14 @@ function(mda_add_plugin TARGET DIR PLUGIN_CODE PLUGIN_NAME PRODUCT_NAME CATEGORI
         ${MDA_JUCE_MODULES}
     PUBLIC
         juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
+    )
+
+    # Disable unused audio codecs
+    target_compile_definitions(${TARGET} PUBLIC
+        JUCE_USE_FLAC=0
+        JUCE_USE_OGGVORBIS=0
     )
 
     # Add CLAP format support via clap-juce-extensions
