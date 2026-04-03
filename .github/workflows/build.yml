@@ -110,9 +110,9 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path staging/VST3, staging/CLAP, staging/LV2
-          Get-ChildItem -Recurse -Filter "*.vst3" -Path build | Where-Object { $_.FullName -match "Release[/\\]VST3" -and $_.PSIsContainer } | ForEach-Object { Copy-Item -Recurse $_.FullName staging/VST3/ }
-          Get-ChildItem -Recurse -Filter "*.clap" -Path build | Where-Object { $_.FullName -match "Release[/\\]CLAP" } | ForEach-Object { Copy-Item -Recurse $_.FullName staging/CLAP/ }
-          Get-ChildItem -Recurse -Filter "*.lv2" -Path build | Where-Object { $_.FullName -match "Release[/\\]LV2" } | ForEach-Object { Copy-Item -Recurse $_.FullName staging/LV2/ }
+          Get-ChildItem -Recurse -Filter "*.vst3" -Path build | Where-Object { $_.FullName -match "MinSizeRel[/\\]VST3" -and $_.PSIsContainer } | ForEach-Object { Copy-Item -Recurse $_.FullName staging/VST3/ }
+          Get-ChildItem -Recurse -Filter "*.clap" -Path build | Where-Object { $_.FullName -match "MinSizeRel[/\\]CLAP" } | ForEach-Object { Copy-Item -Recurse $_.FullName staging/CLAP/ }
+          Get-ChildItem -Recurse -Filter "*.lv2" -Path build | Where-Object { $_.FullName -match "MinSizeRel[/\\]LV2" } | ForEach-Object { Copy-Item -Recurse $_.FullName staging/LV2/ }
           Get-ChildItem staging -Directory | Where-Object { (Get-ChildItem $_.FullName).Count -eq 0 } | Remove-Item
           Write-Host "Collected $((Get-ChildItem staging -Recurse -Depth 1 -Directory).Count) plugins"
 
