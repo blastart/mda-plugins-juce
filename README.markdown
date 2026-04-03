@@ -84,6 +84,21 @@ cp -R build/MDA*_artefacts/Release/CLAP/*.clap ~/Library/Audio/Plug-Ins/CLAP/
 cp -R build/MDA*_artefacts/Release/LV2/*.lv2 ~/Library/Audio/Plug-Ins/LV2/
 ```
 
+### macOS Gatekeeper
+
+Since these plug-ins are not signed with an Apple Developer ID, macOS will quarantine them. After installing, remove the quarantine attribute:
+
+The macOS release zip includes a `remove-quarantine.command` file — double-click it after installing the plugins.
+
+Or manually:
+
+```bash
+xattr -cr ~/Library/Audio/Plug-Ins/VST3/mda_*
+xattr -cr ~/Library/Audio/Plug-Ins/Components/mda_*
+xattr -cr ~/Library/Audio/Plug-Ins/CLAP/mda_*
+xattr -cr ~/Library/Audio/Plug-Ins/LV2/mda_*
+```
+
 ## Plug-in list
 
 ### Effects

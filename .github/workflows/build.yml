@@ -2,10 +2,8 @@ name: Build MDA Plugins
 
 on:
   push:
-    branches: [main, master]
     tags: ["v*"]
   pull_request:
-    branches: [main, master]
   workflow_dispatch:
 
 concurrency:
@@ -32,7 +30,7 @@ jobs:
 
           - name: Windows-x64
             os: windows-latest
-            cmake-args: "-A x64"
+            cmake-args: ""
             artifact: mda-plugins-windows-x64
 
           - name: Linux-x64
@@ -65,22 +63,45 @@ jobs:
             libgl1-mesa-dev \
             libcurl4-openssl-dev \
             libwebkit2gtk-4.1-dev \
-            pkg-config
+            pkg-config \
+            ninja-build
 
-      - name: Configure CMake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake-args }}
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.7
+
+      - name: Cache FetchContent downloads
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: fetchcontent-${{ matrix.artifact }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: fetchcontent-${{ matrix.artifact }}-
+
+      - name: Configure CMake (Unix)
+        if: runner.os != 'Windows'
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: sccache
+          CMAKE_CXX_COMPILER_LAUNCHER: sccache
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=MinSizeRel ${{ matrix.cmake-args }}
+
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        run: cmake -B build -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
 
       - name: Build
-        run: cmake --build build --config Release --parallel 4
+        run: cmake --build build --config MinSizeRel --parallel 4
 
       - name: Collect plugins (macOS)
         if: runner.os == 'macOS'
         run: |
           mkdir -p staging/VST3 staging/AU staging/CLAP staging/LV2
-          find build -path "*/Release/VST3/*.vst3" -exec cp -R {} staging/VST3/ \;
-          find build -path "*/Release/AU/*.component" -exec cp -R {} staging/AU/ \;
-          find build -path "*/Release/CLAP/*.clap" -exec cp -R {} staging/CLAP/ \;
-          find build -path "*/Release/LV2/*.lv2" -exec cp -R {} staging/LV2/ \;
+          find build -path "*/MinSizeRel/VST3/*.vst3" -exec cp -R {} staging/VST3/ \;
+          find build -path "*/MinSizeRel/AU/*.component" -exec cp -R {} staging/AU/ \;
+          find build -path "*/MinSizeRel/CLAP/*.clap" -exec cp -R {} staging/CLAP/ \;
+          find build -path "*/MinSizeRel/LV2/*.lv2" -exec cp -R {} staging/LV2/ \;
           find staging -type d -empty -delete 2>/dev/null || true
           echo "Collected $(find staging -mindepth 2 -maxdepth 2 | wc -l | tr -d ' ') plugins"
 
@@ -99,11 +120,63 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           mkdir -p staging/VST3 staging/CLAP staging/LV2
-          find build -path "*/Release/VST3/*.vst3" -exec cp -R {} staging/VST3/ \;
-          find build -path "*/Release/CLAP/*.clap" -exec cp -R {} staging/CLAP/ \;
-          find build -path "*/Release/LV2/*.lv2" -exec cp -R {} staging/LV2/ \;
+          find build -path "*/MinSizeRel/VST3/*.vst3" -exec cp -R {} staging/VST3/ \;
+          find build -path "*/MinSizeRel/CLAP/*.clap" -exec cp -R {} staging/CLAP/ \;
+          find build -path "*/MinSizeRel/LV2/*.lv2" -exec cp -R {} staging/LV2/ \;
           find staging -type d -empty -delete 2>/dev/null || true
           echo "Collected $(find staging -mindepth 2 -maxdepth 2 | wc -l | tr -d ' ') plugins"
+
+      - name: Add quarantine removal script (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cat > staging/remove-quarantine.command << 'SCRIPT'
+          #!/bin/bash
+          # Double-click this file to remove macOS quarantine from all MDA plugins.
+          echo "Removing quarantine from MDA plugins..."
+          count=0
+          for dir in \
+              "$HOME/Library/Audio/Plug-Ins/VST3" \
+              "$HOME/Library/Audio/Plug-Ins/Components" \
+              "$HOME/Library/Audio/Plug-Ins/CLAP" \
+              "$HOME/Library/Audio/Plug-Ins/LV2" \
+              "/Library/Audio/Plug-Ins/VST3" \
+              "/Library/Audio/Plug-Ins/Components" \
+              "/Library/Audio/Plug-Ins/CLAP" \
+              "/Library/Audio/Plug-Ins/LV2"
+          do
+              for plugin in "$dir"/mda_*; do
+                  if [ -e "$plugin" ]; then
+                      xattr -cr "$plugin" 2>/dev/null && echo "  OK: $(basename "$plugin")" && count=$((count + 1))
+                  fi
+              done
+          done
+          if [ "$count" -eq 0 ]; then
+              echo "No MDA plugins found. Install them first."
+          else
+              echo "Done. Removed quarantine from $count plugins."
+          fi
+          echo ""
+          echo "Press any key to close..."
+          read -n 1
+          SCRIPT
+          chmod +x staging/remove-quarantine.command
+
+      - name: Strip and re-sign (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          find staging -type f -perm +111 \( -name "*.dylib" -o ! -name "*.*" \) -path "*/MacOS/*" | while read f; do
+            strip -x "$f" 2>/dev/null || true
+          done
+          find staging \( -name "*.vst3" -o -name "*.component" -o -name "*.clap" -o -name "*.lv2" \) -maxdepth 2 | while read bundle; do
+            codesign --force --sign - "$bundle" 2>/dev/null || true
+          done
+
+      - name: Strip (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          find staging -type f -executable -o -name "*.so" | while read f; do
+            strip --strip-unneeded "$f" 2>/dev/null || true
+          done
 
       - name: Create archive (Unix)
         if: runner.os != 'Windows'
@@ -119,6 +192,7 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}.zip
+          retention-days: 3
 
   release:
     name: Create Release
